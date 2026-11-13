@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LedgerLine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e9eeeb;--paper:#fbfcfb;--ink:#17302c;--muted:#5f736f;--rule:#c9d6d1;--accent:#0e6b5b;--accent-ink:#fff;--debit:#a8322a;--credit:#16774a;--warn-bg:#fbeceb;--ok-bg:#e6f3ec}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1a18;--paper:#162522;--ink:#e3eeea;--muted:#8da39e;--rule:#2b403b;--accent:#3cb89f;--accent-ink:#06201a;--debit:#f08a82;--credit:#6fd3a0;--warn-bg:#3a1f1d;--ok-bg:#183a2c}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "IBM Plex Sans",system-ui,sans-serif}
+h1,h2,h3{font-family:"IBM Plex Serif",Georgia,serif;margin:0;font-weight:600}
+.num{font-variant-numeric:tabular-nums}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:var(--ink);color:var(--paper)}
+header h1{font-size:22px;letter-spacing:.2px}
+header .who{display:flex;gap:12px;align-items:center;font-size:14px}
+.badge{background:var(--accent);color:var(--accent-ink);padding:2px 10px;border-radius:99px;font-weight:600;font-size:13px}
+main{max-width:1000px;margin:0 auto;padding:24px 16px 64px}
+.card{background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:20px;margin-bottom:20px}
+label{display:block;font-size:14px;color:var(--muted);margin:12px 0 4px}
+input,select{width:100%;padding:10px 12px;font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:8px}
+input:focus,select:focus,button:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+button{font:inherit;font-weight:600;cursor:pointer;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);padding:10px 18px}
+button.ghost{background:transparent;color:inherit;border-color:currentColor}
+button:disabled{opacity:.6;cursor:wait}
+#loginView{max-width:380px;margin:12vh auto 0}
+#loginView h2{font-size:28px;margin-bottom:4px}
+#loginView p{color:var(--muted);margin:0 0 8px}
+#loginView button{width:100%;margin-top:18px}
+.accounts{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.acct{text-align:left;background:var(--paper);color:var(--ink);border:1px solid var(--rule);border-left:6px solid var(--rule);padding:16px}
+.acct.sel{border-left-color:var(--accent);border-color:var(--accent)}
+.acct small{color:var(--muted);display:block}
+.acct .bal{font:600 28px/1.2 "IBM Plex Serif",Georgia,serif;margin-top:6px}
+.grid{display:grid;grid-template-columns:1fr 1.6fr;gap:20px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}header{padding:12px 16px}}
+.tabs{display:flex;gap:6px;margin-bottom:6px}
+.tabs button{flex:1;background:transparent;color:var(--ink);border-color:var(--rule)}
+.tabs button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+form button[type=submit]{width:100%;margin-top:18px}
+.msg{margin-top:14px;padding:10px 12px;border-radius:8px;font-size:14px}
+.msg.ok{background:var(--ok-bg);color:var(--credit)}.msg.err{background:var(--warn-bg);color:var(--debit)}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:560px}
+th{text-align:left;font-weight:600;color:var(--muted);border-bottom:2px solid var(--ink);padding:8px 8px}
+td{padding:9px 8px;border-bottom:1px solid var(--rule);vertical-align:top}
+td.r,th.r{text-align:right}
+.debit{color:var(--debit)}.credit{color:var(--credit)}
+tr.refused td{background:var(--warn-bg)}
+tr.refused td.why{color:var(--debit);font-weight:600}
+.empty{color:var(--muted);padding:16px 0}
+.audit h3{font-size:18px;margin-bottom:10px}
+.check{display:inline-block;padding:4px 12px;border-radius:99px;font-weight:600}
+.check.good{background:var(--ok-bg);color:var(--credit)}.check.bad{background:var(--warn-bg);color:var(--debit)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+[hidden]{display:none!important}
+@media(prefers-reduced-motion:no-preference){.msg{animation:pop .2s ease-out}@keyframes pop{from{opacity:0;transform:translateY(-3px)}}}
+</style>
+</head>
+<body>
+<header>
+  <h1>LedgerLine</h1>
+  <div class="who" id="who" hidden><span id="whoText"></span><span class="badge" id="roleBadge"></span><button class="ghost" id="logout">Log out</button></div>
+</header>
+<main>
+  <section id="loginView" class="card">
+    <h2>Sign in</h2>
+    <p>Every rupee moved here is on the record.</p>
+    <form id="loginForm">
+      <label for="em">Email</label><input id="em" type="email" autocomplete="username" required>
+      <label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password" required>
+      <button type="submit">Sign in</button>
+      <div id="loginMsg" class="msg err" hidden></div>
+    </form>
+  </section>
+
+  <section id="appView" hidden>
+    <h2 style="margin-bottom:12px">Accounts</h2>
+    <div class="accounts" id="accounts" style="margin-bottom:20px"></div>
+
+    <div class="grid">
+      <div class="card" id="moveCard">
+        <h3>Move money</h3>
+        <div class="tabs" role="group" aria-label="Type of movement" style="margin-top:12px">
+          <button type="button" data-type="deposit" aria-pressed="true">Deposit</button>
+          <button type="button" data-type="withdrawal" aria-pressed="false">Withdraw</button>
+          <button type="button" data-type="transfer" aria-pressed="false">Transfer</button>
+        </div>
+        <form id="moveForm">
+          <label for="fromAcc" id="fromLabel">Account</label>
+          <select id="fromAcc" required></select>
+          <div id="toWrap" hidden>
+            <label for="toAcc">To account number</label>
+            <input id="toAcc" inputmode="numeric" placeholder="e.g. 15">
+          </div>
+          <label for="amt">Amount in rupees</label>
+          <input id="amt" inputmode="decimal" placeholder="e.g. 250.00" required>
+          <label for="note">Note (optional)</label>
+          <input id="note" maxlength="200">
+          <button type="submit" id="sendBtn">Deposit</button>
+          <div id="moveMsg" class="msg" hidden role="status"></div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="row" style="justify-content:space-between"><h3 id="stmtTitle">Statement</h3><button class="ghost" id="refreshBtn" type="button">Refresh</button></div>
+        <div class="scroll"><table id="stmt" aria-label="Account statement"></table></div>
+        <div class="empty" id="stmtEmpty">Choose an account to see its statement.</div>
+      </div>
+    </div>
+
+    <div class="card audit" id="auditCard" hidden>
+      <h3>Audit</h3>
+      <div class="row"><button type="button" id="auditBtn">Run conservation check</button><span id="cons"></span></div>
+      <h3 style="margin-top:16px">Recent refused attempts</h3>
+      <div class="scroll"><table id="refTable"></table></div>
+    </div>
+  </section>
+</main>
+
+<script>
+let T = '', USER = null, ACCS = [], SEL = null, TYPE = 'deposit';
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const inr = (p) => (p < 0 ? '-' : '') + '\u20B9' + (Math.abs(p) / 100).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const when = (d) => new Date(d).toLocaleString('en-IN', {dateStyle: 'medium', timeStyle: 'short'});
+async function api(path, opts = {}) {
+  const r = await fetch('/api' + path, {...opts, headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + T, ...(opts.headers || {})}});
+  let j = {}; try { j = await r.json(); } catch {}
+  return {s: r.status, j};
+}
+function show(el, text, ok) { el.hidden = false; el.textContent = text; if (ok !== undefined) el.className = 'msg ' + (ok ? 'ok' : 'err'); }
+
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const r = await api('/login', {method: 'POST', body: JSON.stringify({email: $('em').value, password: $('pw').value})});
+  if (r.s !== 200) return show($('loginMsg'), r.s === 429 ? 'Too many attempts. Try again later.' : 'Email or password is wrong.');
+  T = r.j.token; USER = r.j; $('pw').value = '';
+  $('loginView').hidden = true; $('appView').hidden = false; $('who').hidden = false;
+  $('whoText').textContent = r.j.email; $('roleBadge').textContent = r.j.role;
+  $('moveCard').hidden = r.j.role === 'auditor';
+  $('auditCard').hidden = r.j.role === 'holder';
+  setType('deposit'); load();
+});
+$('logout').addEventListener('click', () => location.reload());
+
+async function load() {
+  const r = await api('/accounts');
+  if (r.s === 401) return alert('Session expired. Please sign in again.'), location.reload();
+  ACCS = r.j;
+  if (SEL && !ACCS.find((a) => a.id === SEL)) SEL = null;
+  if (!SEL && ACCS.length) SEL = ACCS[0].id;
+  renderAccounts();
+  if (SEL) loadStatement(SEL);
+}
+function renderAccounts() {
+  $('accounts').innerHTML = ACCS.length ? ACCS.map((a) => `
+    <button type="button" class="acct ${a.id === SEL ? 'sel' : ''}" data-id="${a.id}">
+      <small>Account ${a.id}</small><strong>${esc(a.name)}</strong>
+      <div class="bal num">${inr(a.balance)}</div></button>`).join('') : '<div class="empty">No accounts yet.</div>';
+  $('fromAcc').innerHTML = ACCS.map((a) => `<option value="${a.id}" ${a.id === SEL ? 'selected' : ''}>${a.id} \u2013 ${esc(a.name)}</option>`).join('');
+}
+$('accounts').addEventListener('click', (e) => {
+  const b = e.target.closest('.acct'); if (!b) return;
+  SEL = Number(b.dataset.id); renderAccounts(); loadStatement(SEL);
+});
+$('fromAcc').addEventListener('change', (e) => { SEL = Number(e.target.value); renderAccounts(); loadStatement(SEL); });
+$('refreshBtn').addEventListener('click', load);
+
+async function loadStatement(id) {
+  const r = await api('/accounts/' + id + '/statement');
+  if (r.s !== 200) { $('stmt').innerHTML = ''; $('stmtEmpty').hidden = false; return $('stmtEmpty').textContent = 'Could not load this statement.'; }
+  $('stmtTitle').textContent = 'Statement: ' + r.j.account.name;
+  const rows = r.j.entries;
+  $('stmtEmpty').hidden = rows.length > 0; if (!rows.length) $('stmtEmpty').textContent = 'No activity yet.';
+  $('stmt').innerHTML = rows.length ? `<thead><tr><th>When</th><th>What</th><th>By</th><th class="r">Debit</th><th class="r">Credit</th><th class="r">Balance</th></tr></thead><tbody>` +
+    rows.map((x) => x.kind === 'refused'
+      ? `<tr class="refused"><td>${when(x.created_at)}</td><td class="why">Refused ${esc(x.type)}: ${esc(x.note)}</td><td>${esc(x.initiated_by)}</td><td class="r num">${x.amount != null ? inr(x.amount) : ''}</td><td></td><td></td></tr>`
+      : `<tr><td>${when(x.created_at)}</td><td>${esc(x.type)}${x.note ? ' \u2013 ' + esc(x.note) : ''}</td><td>${esc(x.initiated_by)}</td>
+         <td class="r num debit">${x.amount < 0 ? inr(-x.amount) : ''}</td><td class="r num credit">${x.amount > 0 ? inr(x.amount) : ''}</td><td class="r num">${inr(x.balance_after)}</td></tr>`).join('') + '</tbody>' : '';
+}
+
+function setType(t) {
+  TYPE = t;
+  document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.type === t));
+  $('toWrap').hidden = t !== 'transfer';
+  $('fromLabel').textContent = t === 'transfer' ? 'From account' : 'Account';
+  $('sendBtn').textContent = {deposit: 'Deposit', withdrawal: 'Withdraw', transfer: 'Transfer'}[t];
+  $('moveMsg').hidden = true;
+}
+document.querySelector('.tabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setType(b.dataset.type); });
+
+$('moveForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const txt = $('amt').value.trim();
+  if (!/^\d+(\.\d{1,2})?$/.test(txt)) return show($('moveMsg'), 'Enter an amount like 250 or 250.50.', false);
+  const paise = Math.round(parseFloat(txt) * 100);
+  if (paise <= 0) return show($('moveMsg'), 'Amount must be more than zero.', false);
+  const from = Number($('fromAcc').value);
+  const body = TYPE === 'transfer' ? {fromId: from, toId: Number($('toAcc').value), amount: paise, note: $('note').value}
+                                   : {accountId: from, amount: paise, note: $('note').value};
+  $('sendBtn').disabled = true;
+  const r = await api('/' + TYPE + 's', {method: 'POST', headers: {'Idempotency-Key': crypto.randomUUID()}, body: JSON.stringify(body)});
+  $('sendBtn').disabled = false;
+  if (r.s === 201) { show($('moveMsg'), `Done. New balance ${inr(r.j.balanceAfter)} (transaction ${r.j.transactionId}).`, true); $('amt').value = ''; load(); }
+  else show($('moveMsg'), `${r.j.error || 'ERROR'}${r.j.message ? ': ' + r.j.message : ''}`, false), load();
+});
+
+$('auditBtn').addEventListener('click', async () => {
+  const c = await api('/audit/conservation');
+  const ok = c.j.ok;
+  $('cons').innerHTML = `<span class="check ${ok ? 'good' : 'bad'}">${ok ? 'Books balance' : 'Books do NOT balance'}</span> <span class="num">Sum of all balances: ${esc(c.j.sumOfAllBalances)}</span>`;
+  const r = await api('/audit/refused');
+  $('refTable').innerHTML = r.j.length ? `<thead><tr><th>When</th><th>User id</th><th>Action</th><th>Account</th><th class="r">Amount</th><th>Reason</th></tr></thead><tbody>` +
+    r.j.map((x) => `<tr class="refused"><td>${when(x.created_at)}</td><td>${esc(x.user_id)}</td><td>${esc(x.action)}</td><td>${esc(x.account_id)}</td><td class="r num">${x.amount != null ? inr(x.amount) : ''}</td><td class="why">${esc(x.reason)}</td></tr>`).join('') + '</tbody>' : '<tbody><tr><td class="empty">No refused attempts.</td></tr></tbody>';
+});
+</script>
+</body>
+</html>
